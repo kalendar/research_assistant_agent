@@ -1,0 +1,6 @@
+Based on its title and abstract, does the following article talk about how generative AI impacts student learning?
+
+Title: {title}
+Abstract: {abstract}
+
+Respond with 'Yes' or 'No'.
