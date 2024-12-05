@@ -13,6 +13,5 @@ To configure the agent,
 * Edit the prompt in the prompt_template.txt file so the agent knows what to look for when reading through abstracts.
 
 # Using the Agent
-* Run the agent from the command line with `python research_assistant_agent.py`. I recommend piping the output to a file, like `python research_assistant_agent.py > 11-12-2024.txt`.
-* When the agent is done, browse through the text file to read the abstracts the agent classified as relevant. Then you can decide which full articles 
-to read. (I like to keep the prompt a little loose so it over-matches rather than tighening it up so it under-matches. I'd rather read a couple of extra irrelevant abstracts than miss a relevant one.) 
+* Run the agent from the command line with `python research_assistant_agent.py`.
+* Output is written to a date-named CSV file you can post-process however you like. The first column in the CSV includes a Yes or No, representing whether the reviewed article fit the review criteria outlined in the prompt_template.txt.
