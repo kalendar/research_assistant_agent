@@ -1,17 +1,13 @@
 import requests
+import ollama
 from bs4 import BeautifulSoup
 import time
-
-
-# Run a local model so this is free!
-# Replace with your endpoint
-API_ENDPOINT = 'http://127.0.0.1:1234/v1/chat/completions'
-
+import csv
+from datetime import datetime
 
 # Read in arXiv URLs from urls.txt
 with open("urls.txt", "r") as file:
     arxiv_urls = [line.strip() for line in file if line.strip()]
-
 
 # Get articles from arXiv
 def get_arxiv(url):
@@ -43,15 +39,11 @@ def get_arxiv(url):
 
     return articles
 
-
-# Check whether the articles are relevant or not
+# Check whether the articles are relevant or not using Ollama
 def check_relevance_with_llm(articles, processed_titles):
 
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    relevant_articles = []
+    # List to store abstracts and their relevance answers for CSV
+    csv_data = []
 
     for article in articles:
         # Skip articles that have already been processed
@@ -65,54 +57,57 @@ def check_relevance_with_llm(articles, processed_titles):
         # Format the prompt with the article's title and abstract
         prompt = prompt_template.format(title=article['title'], abstract=article['abstract'])
 
-        # Prepare request data for the API
-        data = {
-            # Replace with the name of the model you want to use
-            "model": "xaskasdf/Llama-3.1-8b-instruct-gguf",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1,
-            "temperature": 0
-        }
+        # Use Ollama to get relevance
+        response = ollama.generate(
+            model="llama3.1:8b-instruct-q8_0",
+            prompt=prompt
+        )
 
-        response = requests.post(API_ENDPOINT, headers=headers, json=data)
-        answer = response.json()["choices"][0]["message"]["content"].strip()
+        # Extract the response content
+        answer = response['response'].strip().rstrip('.')
 
-        if answer.lower() == "yes" or answer.lower() == "yes.":
-            relevant_articles.append(article)
+        # Save the abstract and answer to csv_data list
+        csv_data.append({
+            'title': article['title'],
+            'article_url': article['article_url'],
+            'abstract': article['abstract'],
+            'answer': answer
+        })
 
-        # Mark this article as processed so we don't process it again
+        # Mark this article as processed
         processed_titles.add(article['title'])
 
         # Sleep a little between requests
         time.sleep(1)
 
-    return relevant_articles
-
+    return csv_data
 
 # Main function
 def main():
-    all_relevant_articles = []
     processed_titles = set()
+    csv_data = []
 
     for url in arxiv_urls:
         print(f"Getting articles from {url}...")
         articles = get_arxiv(url)
         print(f"Found {len(articles)} articles. Checking their relevance...")
 
-        relevant_articles = check_relevance_with_llm(articles, processed_titles)
-        all_relevant_articles.extend(relevant_articles)
-        print(f"Found {len(relevant_articles)} relevant articles in this category.\n")
+        relevance_data = check_relevance_with_llm(articles, processed_titles)
+        csv_data.extend(relevance_data)  # Add relevance data for CSV output
+        print(f"Processed relevance check for {len(relevance_data)} articles in this category.\n")
 
-    # Print the relevant articles
-    if all_relevant_articles:
-        print("Relevant Articles:")
-        for article in all_relevant_articles:
-            print(f"Title: {article['title']}")
-            print(f"URL: {article['article_url']}")
-            print(f"Abstract: {article['abstract']}\n{'-'*40}")
-    else:
-        print("No relevant articles found.")
+    # Get current date and format it as "MM-DD-YYYY"
+    current_date = datetime.now().strftime("%m_%d_%Y")
+    filename = f"article_relevance_{current_date}.csv"
 
+    # Write to CSV file
+    with open(filename, mode="w", newline="", encoding="utf-8") as csvfile:
+        fieldnames = ['answer', 'title', 'article_url', 'abstract']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(csv_data)
+
+    print("CSV file written successfully.")
 
 if __name__ == "__main__":
     main()
